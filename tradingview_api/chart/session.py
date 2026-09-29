@@ -116,7 +116,15 @@ def chart_session_generator(client):
                                 "close": values[4],
                                 "max": values[2],
                                 "min": values[3],
-                                "volume": round(values[5] * 100) / 100,
+                                # Indices and yields (TVC:DXY, TVC:VIX, TVC:US10Y, ...) carry NO
+                                # volume, so TradingView returns 5 fields, not 6.  The block above
+                                # guards values[0..4] via `if not values: continue`, but values[5] was
+                                # unguarded, so every volume-less symbol raised IndexError
+                                # ("list index out of range") which callers report as a websocket
+                                # failure.  Effect: every CME/COMEX/NYMEX future parsed fine while
+                                # every TVC: index/yield series failed.  Confirmed 2026-09-29 --
+                                # TVC:DXY returned len(values)==5.
+                                "volume": round(values[5] * 100) / 100 if len(values) > 5 else 0.0,
                             }
                         continue
                     if key in self._study_listeners:
